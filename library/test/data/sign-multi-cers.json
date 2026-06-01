@@ -1,0 +1,74 @@
+{
+  "comment": "Multi-CER signing test: CAdES-BES, attached data, two signers from one P12",
+  "commentUsage": "test uapki.2.0.16 sign-multi-cers.json",
+  "tasks": [
+    { "method": "VERSION" },
+    {
+      "method": "INIT",
+      "parameters": {
+        "cmProviders": {
+          "dir": "",
+          "allowedProviders": [ { "lib": "cm-pkcs12" } ]
+        },
+        "certCache": {
+          "path": "/Volumes/External/Code/UAPKI/library/test/data/certs/",
+          "trustedCerts": []
+        },
+        "crlCache": {
+          "path": "/Volumes/External/Code/UAPKI/library/test/data/crls/"
+        },
+        "offline": false
+      }
+    },
+    {
+      "method": "OPEN",
+      "parameters": {
+        "provider": "PKCS12",
+        "storage": "file://memory",
+        "password": "testpassword",
+        "mode": "RO",
+        "openParams": {
+          "bytes": "MIIE4wIBAzCCBIAGCSqGSIb3DQEHAaCCBHEEggRtMIIEaTCCBGUGCSqGSIb3DQEHAaCCBFYEggRSMIIETjCCAfIGCyqGSIb3DQEMCgECoIIBrjCCAaowgbAGCSqGSIb3DQEFDTCBojBDBgkqhkiG9w0BBQwwNgQg8onEwuXgBzU9vOV4xAdkFQPbrjUoAqlkrCCNINMSZ2QCAicQMA4GCiqGJAIBAQEBAQIFADBbBgsqhiQCAQEBAQEBAzBMBAjl++qfhVudNARAqdbrRfE8cIKAxJZ7Ix9erfZY66TANykdONlr8CXKThf46XINxhW0OiiXXwvB3qNkOLVk6iwXn9ASPm24+sV5BASB9A1Ql+mjjWbR/cUgexrnRkjrGYnjQmRvjKTycJmmYrSC+s8Oc7CH6suZmdI2MCf6bFqt1t8KHQP63QRVawfENeyxNsVUTtckmVhTTbj9K5TdXpjUm6fdR5elAphw0juEqwuRhK5EZfPCd3GqN/QhqEVlw+FNayYbcPBCy3GoznDjvpGQopeZnKjbFm6LU8xSEnYXry9Cs12eoCLE9iToxUjVpAUm1BkllEX3vzzX6uWabwCztNPXMjlhbBUi/JY+CitKer0LACwntJQV2ExUB7JnRRpi/VCQf4/kc+/O4Ms+57Gsjzj5Lz1/10DHA2+19qDJlcYxMTAvBgkqhkiG9w0BCRUxIgQgW8bAbuHgDBcA6Sqnqa11+C08t6m2bjqYAjIJskUTMVwwggJUBgsqhkiG9w0BDAoBAqCCAhAwggIMMIGwBgkqhkiG9w0BBQ0wgaIwQwYJKoZIhvcNAQUMMDYEILhXkg6YGQ4BrfauMDi8GwQUgLtt2OJQgoX49sp2+z1tAgInEDAOBgoqhiQCAQEBAQECBQAwWwYLKoYkAgEBAQEBAQMwTAQI5VsBILoMDqQEQKnW60XxPHCCgMSWeyMfXq32WOukwDcpHTjZa/Alyk4X+OlyDcYVtDool18Lwd6jZDi1ZOosF5/QEj5tuPrFeQQEggFVCdS79oZ5VwWJoglnyr2Jx7kcFvXjGm5MaB7T+sWy7oTgZvsU18BPxgmy4nt9uYSXIaAZ8xgU6LxsuRSWn9h1zvO+eFAb3gCLVErB4AYlJ+ajS2+8aCcvVKeAf5KeIFNc9WzO6sepnt2DGx445WXSmttCSDKi+dFxCHU27mO5ucT8bScswYGlts+wb7Fk5GM5aWTmbNsn4fCYMMez9jf4OiKSeHDNddmmmqaGeO08obymDXQNVIAKNzQrhei3F38t4I9sfEt00eF1A9pyJ5lEINe+SGVQXbBhnkTHQzPer9y4k7lqs179+5LnsyYGbMcWsVsCGqesAKqC+LVAf8JLQiyIKk/Uoc+Mt4irsW1HUrJFAPy3hkA5i+6RlbmFmBwy9Dr1rLv3k0/H92yvrVWAYTkRCwggyTZZnlDqpPplf9qPKDOH4bHVPK1lsyCVJHcbVEGj7hMxMTAvBgkqhkiG9w0BCRUxIgQgaxt3wNGhtgRzqY3W1P5TAnQq7eEB2qIfLIOmfM3tt4IwWjAyMA4GCiqGJAIBAQEBAgEFAAQgRksMSDei8GRdFaanSX4NMiyGGtVcL83NP5LRrI0Ci4sEIEDj9AVY5NLjH85Rjanpa5JzsL6o23IKuMmUI3U2U+soAgInEA=="
+        }
+      }
+    },
+    { "method": "PROVIDERS" },
+    { "method": "KEYS" },
+    {
+      "method": "SELECT_KEY",
+      "parameters": {
+        "id": "5BC6C06EE1E00C1700E92AA7A9AD75F82D3CB7A9B66E3A98023209B24513315C"
+      }
+    },
+    {
+      "method": "ADD_CERT",
+      "parameters": {
+        "certificates": [
+          "MIIBMTCCARcxXDBaBgNVBAoMU9Cc0ZbQvdGW0YHRgtC10YDRgdGC0LLQviDRhtC40YTRgNC+0LLQvtGXINGC0YDQsNC90YHRhNC+0YDQvNCw0YbRltGXINCj0LrRgNCw0ZfQvdC4MTEwLwYDVQQLDCjQkNC00LzRltC90ZbRgdGC0YDQsNGC0L7RgCDQhtCi0KEg0KbQl9CeMUkwRwYDVQQDDEDQptC10L3RgtGA0LDQu9GM0L3QuNC5INC30LDRgdCy0ZbQtNGH0YPQstCw0LvRjNC90LjQuSDQvtGA0LPQsNC9MRkwFwYDVQQFDBBVQS00MzIyMDg1MS0yMDIwMQswCQYDVQQGEwJVQTERMA8GA1UEBwwI0JrQuNGX0LICFAXhnizZLqKZAQAAAAEAAADBAAAA"
+        ]
+      }
+    },
+    {
+      "method": "SIGN",
+      "parameters": {
+        "signParams": {
+          "signatureFormat": "CAdES-BES",
+          "signAlgo": "1.2.804.2.1.1.1.1.3.1.1",
+          "detachedData": false,
+          "includeCert": true,
+          "includeTime": true
+        },
+        "options": { "ignoreCertStatus": true },
+        "cerSigners": [
+          { "certId": "MIH6MIHhMRYwFAYDVQQKDA3QlNCfICLQlNCG0K8iMXMwcQYDVQQDDGoi0JTRltGPIi4g0JrQstCw0LvRltGE0ZbQutC+0LLQsNC90LjQuSDQvdCw0LTQsNCy0LDRhyDQtdC70LXQutGC0YDQvtC90L3QuNGFINC00L7QstGW0YDRh9C40YUg0L/QvtGB0LvRg9CzMRkwFwYDVQQFExBVQS00MzM5NTAzMy0xMDAwMQswCQYDVQQGEwJVQTERMA8GA1UEBwwI0JrQuNGX0LIxFzAVBgNVBGEMDk5UUlVBLTQzMzk1MDMzAhQ+1QgxYNvFmwQAAACpHgYAc6V2AA==" },
+          { "certId": "MIIBMTCCARcxXDBaBgNVBAoMU9Cc0ZbQvdGW0YHRgtC10YDRgdGC0LLQviDRhtC40YTRgNC+0LLQvtGXINGC0YDQsNC90YHRhNC+0YDQvNCw0YbRltGXINCj0LrRgNCw0ZfQvdC4MTEwLwYDVQQLDCjQkNC00LzRltC90ZbRgdGC0YDQsNGC0L7RgCDQhtCi0KEg0KbQl9CeMUkwRwYDVQQDDEDQptC10L3RgtGA0LDQu9GM0L3QuNC5INC30LDRgdCy0ZbQtNGH0YPQstCw0LvRjNC90LjQuSDQvtGA0LPQsNC9MRkwFwYDVQQFDBBVQS00MzIyMDg1MS0yMDIwMQswCQYDVQQGEwJVQTERMA8GA1UEBwwI0JrQuNGX0LICFAXhnizZLqKZAQAAAAEAAADBAAAA" }
+        ],
+        "dataTbs": [
+          { "id": "doc-multi", "bytes": "VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZw==" }
+        ]
+      }
+    },
+    { "method": "CLOSE" },
+    { "method": "DEINIT" }
+  ]
+}

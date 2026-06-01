@@ -92,6 +92,45 @@ static int get_info_signalgo_and_keyid (
     return ret;
 }   //  get_info_signalgo_and_keyid
 
+static int parse_cer_signers (
+        JSON_Object* joSignParams,
+        Doc::Sign::SharedData& sharedData
+)
+{
+    const JSON_Array* ja_cer_signers = json_object_get_array(joSignParams, "cerSigners");
+    if (!ja_cer_signers) return RET_OK;
+
+    const size_t cnt_cer_signers = json_array_get_count(ja_cer_signers);
+    if (cnt_cer_signers == 0) return RET_OK;
+
+    if (cnt_cer_signers > Doc::Sign::MAX_COUNT_DOCS) return RET_UAPKI_INVALID_PARAMETER;
+
+    sharedData.signerSlotCount = cnt_cer_signers;
+    sharedData.signerSlotKeyIds.resize(cnt_cer_signers);
+    sharedData.signerSlotCerts.resize(cnt_cer_signers, nullptr);
+
+    Cert::CerStore& cer_store = *sharedData.certValidator.getCerStore();
+
+    for (size_t i = 0; i < cnt_cer_signers; i++) {
+        JSON_Object* jo_cer_signer = json_array_get_object(ja_cer_signers, i);
+        if (!jo_cer_signer) return RET_UAPKI_INVALID_PARAMETER;
+
+        SmartBA sba_certid;
+        if (!sba_certid.set(json_object_get_base64(jo_cer_signer, "certId"))) {
+            return RET_UAPKI_INVALID_PARAMETER;
+        }
+
+        Cert::CerItem* cer_item = nullptr;
+        const int ret = cer_store.getCertByCertId(sba_certid.get(), &cer_item);
+        if (ret != RET_OK) return ret;
+
+        sharedData.signerSlotCerts[i] = cer_item;
+        sharedData.signerSlotKeyIds[i].set(ba_copy_with_alloc(cer_item->getKeyId(), 0, 0));
+    }
+
+    return RET_OK;
+}   //  parse_cer_signers
+
 static int parse_sign_params (
         JSON_Object* joSignParams,
         JSON_Object* joSignOptions,
@@ -273,6 +312,16 @@ int uapki_sign (
         shared_data
     ));
 
+    DO(parse_cer_signers(
+        joParams,
+        shared_data
+    ));
+
+    if (shared_data.signerSlotCount > 0) {
+        shared_data.cerSigner = shared_data.signerSlotCerts[0];
+        shared_data.keyId.set(ba_copy_with_alloc(shared_data.signerSlotKeyIds[0].get(), 0, 0));
+    }
+
     shared_data.ocsp = config.getOcsp();
     if (shared_data.includeContentTS || shared_data.includeSignatureTS) {
         if (config.getOffline()) {
@@ -354,43 +403,107 @@ int uapki_sign (
     }
 
     if (shared_data.signatureFormat != SignatureFormat::RAW) {
+        vector<vector<ByteArray*>> vva_signer_hashes;
+        vva_signer_hashes.resize(shared_data.signerSlotCount > 0 ? shared_data.signerSlotCount : 1);
+
         for (size_t i = 0; i < signing_docs.size(); i++) {
             Doc::Sign::SigningDoc& sdoc = signing_docs[i];
 
-            DO(sdoc.setupSignerIdentifier());
-
-            DO(sdoc.digestMessage());
-            if (shared_data.includeContentTS) {
-                //  After digestMessage and before buildSignedAttributes
-                DO(sdoc.addTimestamp(Doc::Sign::TsAttr::CONTENT_TIMESTAMP));
+            if (shared_data.signerSlotCount == 0) {
+                DO(sdoc.setupSignerIdentifier());
+                DO(sdoc.digestMessage());
+                if (shared_data.includeContentTS) {
+                    DO(sdoc.addTimestamp(Doc::Sign::TsAttr::CONTENT_TIMESTAMP));
+                }
+                DO(sdoc.buildSignedAttributes());
+                DO(sdoc.digestSignedAttributes());
+                refba_hashes.push_back(sdoc.hashSignedAttrs.get());
             }
-
-            DO(sdoc.buildSignedAttributes());
-            DO(sdoc.digestSignedAttributes());
-            refba_hashes.push_back(sdoc.hashSignedAttrs.get());
+            else {
+                for (size_t slot = 0; slot < shared_data.signerSlotCount; slot++) {
+                    shared_data.cerSigner = shared_data.signerSlotCerts[slot];
+                    shared_data.keyId.set(ba_copy_with_alloc(shared_data.signerSlotKeyIds[slot].get(), 0, 0));
+                    DO(sdoc.setupSignerIdentifier());
+                    DO(sdoc.digestMessage());
+                    if (shared_data.includeContentTS) {
+                        DO(sdoc.addTimestamp(Doc::Sign::TsAttr::CONTENT_TIMESTAMP));
+                    }
+                    DO(sdoc.buildSignedAttributes());
+                    DO(sdoc.digestSignedAttributes());
+                    vva_signer_hashes[slot].push_back(sdoc.hashSignedAttrs.get());
+                }
+                //  Restore primary signer
+                shared_data.cerSigner = shared_data.signerSlotCerts[0];
+                shared_data.keyId.set(ba_copy_with_alloc(shared_data.signerSlotKeyIds[0].get(), 0, 0));
+            }
         }
 
-        DO(storage->keySign(
-            shared_data.aidSignature.algorithm,
-            nullptr,
-            refba_hashes,
-            vba_signatures
-        ));
+        if (shared_data.signerSlotCount == 0) {
+            DO(storage->keySign(
+                shared_data.aidSignature.algorithm,
+                nullptr,
+                refba_hashes,
+                vba_signatures
+            ));
+        }
+        else {
+            for (size_t slot = 0; slot < shared_data.signerSlotCount; slot++) {
+                vector<ByteArray*>& slot_hashes = vva_signer_hashes[slot];
+                VectorBA slot_sigs;
+                shared_data.cerSigner = shared_data.signerSlotCerts[slot];
+                shared_data.keyId.set(ba_copy_with_alloc(shared_data.signerSlotKeyIds[slot].get(), 0, 0));
+                DO(storage->keySign(
+                    shared_data.aidSignature.algorithm,
+                    shared_data.signerSlotKeyIds[slot].get(),
+                    slot_hashes,
+                    slot_sigs
+                ));
+                for (size_t i = 0; i < signing_docs.size(); i++) {
+                    //  To be applied in the final loop below
+                    vba_signatures.push_back(slot_sigs[i]);
+                }
+                shared_data.cerSigner = shared_data.signerSlotCerts[0];
+                shared_data.keyId.set(ba_copy_with_alloc(shared_data.signerSlotKeyIds[0].get(), 0, 0));
+            }
+        }
 
         for (size_t i = 0; i < signing_docs.size(); i++) {
             Doc::Sign::SigningDoc& sdoc = signing_docs[i];
-            DO(sdoc.setSignature(vba_signatures[i]));
-            vba_signatures[i] = nullptr;
-            //  Add unsigned attrs before call buildSignedData
-            if (shared_data.includeSignatureTS) {
-                DO(sdoc.addTimestamp(Doc::Sign::TsAttr::TIMESTAMP_TOKEN));
-            }
 
-            DO(sdoc.buildUnsignedAttributes());
-            if (shared_data.signatureFormat == SignatureFormat::CADES_A) {
-                DO(sdoc.addTimestamp(Doc::Sign::TsAttr::ARCHIVE_TIMESTAMP));
+            if (shared_data.signerSlotCount == 0) {
+                DO(sdoc.setSignature(vba_signatures[i]));
+                vba_signatures[i] = nullptr;
+                if (shared_data.includeSignatureTS) {
+                    DO(sdoc.addTimestamp(Doc::Sign::TsAttr::TIMESTAMP_TOKEN));
+                }
+                DO(sdoc.buildUnsignedAttributes());
+                if (shared_data.signatureFormat == SignatureFormat::CADES_A) {
+                    DO(sdoc.addTimestamp(Doc::Sign::TsAttr::ARCHIVE_TIMESTAMP));
+                }
+                DO(sdoc.buildSignedData());
             }
-            DO(sdoc.buildSignedData());
+            else {
+                for (size_t slot = 0; slot < shared_data.signerSlotCount; slot++) {
+                    shared_data.cerSigner = shared_data.signerSlotCerts[slot];
+                    shared_data.keyId.set(ba_copy_with_alloc(shared_data.signerSlotKeyIds[slot].get(), 0, 0));
+                    sdoc.setupSignerIdentifier();
+                    const size_t sigidx = i * shared_data.signerSlotCount + slot;
+                    DO(sdoc.setSignature(vba_signatures[sigidx]));
+                    vba_signatures[sigidx] = nullptr;
+                    if (shared_data.includeSignatureTS) {
+                        DO(sdoc.addTimestamp(Doc::Sign::TsAttr::TIMESTAMP_TOKEN));
+                    }
+                    DO(sdoc.buildUnsignedAttributes());
+                    if (slot == shared_data.signerSlotCount - 1) {
+                        if (shared_data.signatureFormat == SignatureFormat::CADES_A) {
+                            DO(sdoc.addTimestamp(Doc::Sign::TsAttr::ARCHIVE_TIMESTAMP));
+                        }
+                    }
+                }
+                DO(sdoc.buildSignedData());
+                shared_data.cerSigner = shared_data.signerSlotCerts[0];
+                shared_data.keyId.set(ba_copy_with_alloc(shared_data.signerSlotKeyIds[0].get(), 0, 0));
+            }
         }
     }
     else {

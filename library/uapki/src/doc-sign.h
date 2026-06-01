@@ -113,6 +113,11 @@ struct SharedData : Params {
                 tsp;
     SmartBA     encodedSigningCert;
     SmartBA     encodedSignPolicy;
+    std::vector<SmartBA>
+                signerSlotKeyIds;
+    std::vector<Cert::CerItem*>
+                signerSlotCerts;
+    size_t      signerSlotCount;
 
     SharedData (void);
 
